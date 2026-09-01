@@ -36,6 +36,12 @@ func parseGraph(path string, raw []byte) (Graph, error) {
 		}
 		parts := strings.Split(line, "|")
 		kind := parts[0]
+		if kind == "protocol" {
+			if len(parts) != 2 || parts[1] != "gooo/content-addressed-evidence-projector/v1" {
+				return Graph{}, fmt.Errorf("line %d: invalid protocol declaration", lineNumber)
+			}
+			continue
+		}
 		values := map[string]string{}
 		for _, part := range parts[1:] {
 			pair := strings.SplitN(part, "=", 2)

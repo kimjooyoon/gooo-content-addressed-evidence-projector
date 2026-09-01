@@ -46,6 +46,10 @@ func parseGraph(path string, raw []byte) (Graph, error) {
 		}
 		location := SourceLocation{Path: filepath.ToSlash(path), Line: lineNumber, Column: 1}
 		switch kind {
+		case "protocol":
+			if len(parts) != 2 || parts[1] != "gooo/content-addressed-evidence-projector/v1" {
+				return Graph{}, fmt.Errorf("line %d: invalid protocol declaration", lineNumber)
+			}
 		case "graph":
 			if graph.GraphID != "" {
 				return Graph{}, fmt.Errorf("line %d: duplicate graph declaration", lineNumber)

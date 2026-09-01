@@ -1,7 +1,7 @@
 protocol|gooo/content-addressed-evidence-projector/v1
 
 # The semantic graph owns the meaning, state precedence, objects, cells, and case denominator.
-graph|id=gooo-content-addressed-evidence-projector release=v0.1.0 hash=sha256 chunk_size=16 precedence=REFUTED,UNKNOWN,CLOSED indicators=semantic_root,bytes_read,files_read,wall_ms,peak_rss_kib cross_project_required_gates=0 repository_writes=0 local_test_executions=0 toolchain=go1.27.x runner=github-actions/ubuntu-latest live_project=shared-ledger live_release_id=380694027 live_asset_id=539891522 live_asset_digest=sha256:3792b53a77d88b3471e6f4889baf24679dcdcfba8314abb32d0dd3469ccdc3aa
+graph|id=gooo-content-addressed-evidence-projector|release=v0.1.0|hash=sha256|chunk_size=16|precedence=REFUTED,UNKNOWN,CLOSED|indicators=semantic_root,bytes_read,files_read,wall_ms,peak_rss_kib|cross_project_required_gates=0|repository_writes=0|local_test_executions=0|toolchain=go1.27.x|runner=github-actions/ubuntu-latest|live_project=shared-ledger|live_release_id=380694027|live_asset_id=539891522|live_asset_digest=sha256:3792b53a77d88b3471e6f4889baf24679dcdcfba8314abb32d0dd3469ccdc3aa
 
 object|ordinal=1 id=evidence-object kind=EVIDENCE_OBJECT canonical_by=case_id,claim_id,cell_id
 object|ordinal=2 id=chunk-digest kind=CHUNK_DIGEST canonical_by=sha256,chunk_size,byte_order

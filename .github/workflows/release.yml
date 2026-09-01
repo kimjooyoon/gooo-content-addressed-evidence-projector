@@ -74,8 +74,13 @@ jobs:
           set -Eeuo pipefail
           release_id=$(gh api "repos/${GITHUB_REPOSITORY}/releases?per_page=100" --paginate | jq -r --arg tag "$RELEASE_TAG" '.[] | select(.tag_name == $tag) | .id' | head -n 1)
           if test -z "$release_id"; then
-            gh release create "$RELEASE_TAG" --verify-tag --draft --title "gooo-content-addressed-evidence-projector $RELEASE_TAG" --notes "Draft-first release bound to annotated tag $(git rev-parse "$RELEASE_TAG")"
-            release_id=$(gh api "repos/${GITHUB_REPOSITORY}/releases?per_page=100" --paginate | jq -r --arg tag "$RELEASE_TAG" '.[] | select(.tag_name == $tag) | .id' | head -n 1)
+            draft_json=$(gh api --method POST "repos/${GITHUB_REPOSITORY}/releases" \
+              -f tag_name="$RELEASE_TAG" \
+              -f target_commitish="$(git rev-parse "$RELEASE_TAG^{commit}")" \
+              -f name="gooo-content-addressed-evidence-projector $RELEASE_TAG" \
+              -f body="Draft-first release bound to annotated tag $(git rev-parse "$RELEASE_TAG")." \
+              -F draft=true -F prerelease=false)
+            release_id=$(jq -r '.id' <<< "$draft_json")
           fi
           test -n "$release_id"
           echo "release_id=$release_id" >> "$GITHUB_OUTPUT"

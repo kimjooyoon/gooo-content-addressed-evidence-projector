@@ -1,0 +1,15 @@
+{
+  "schema": "gooo/content-addressed-evidence-projector/immutable-fixture-manifest/v1",
+  "immutable": true,
+  "bundle_id": "content-addressed-evidence-projector-own-deterministic-v1",
+  "hash_algorithm": "sha256",
+  "files": [
+    {
+      "path": "fixtures/deterministic-corpus-v1.json",
+      "bytes": 6799,
+      "digest": "sha256:ee8a4bfdb1b489e95b3cac9e11da90cd6620c079293555ff2ee3cc712d8b0624"
+    }
+  ],
+  "authority": "repository-committed-own-fixture",
+  "cross_project_required_gates": 0
+}

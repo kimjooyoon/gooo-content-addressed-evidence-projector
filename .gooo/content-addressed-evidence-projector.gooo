@@ -1,0 +1,35 @@
+protocol|gooo/content-addressed-evidence-projector/v1
+
+# The semantic graph owns the meaning, state precedence, objects, cells, and case denominator.
+graph|id=gooo-content-addressed-evidence-projector release=v0.1.0 hash=sha256 chunk_size=16 precedence=REFUTED,UNKNOWN,CLOSED indicators=semantic_root,bytes_read,files_read,wall_ms,peak_rss_kib cross_project_required_gates=0 repository_writes=0 local_test_executions=0 toolchain=go1.27.x runner=github-actions/ubuntu-latest live_project=shared-ledger live_release_id=380694027 live_asset_id=539891522 live_asset_digest=sha256:3792b53a77d88b3471e6f4889baf24679dcdcfba8314abb32d0dd3469ccdc3aa
+
+object|ordinal=1 id=evidence-object kind=EVIDENCE_OBJECT canonical_by=case_id,claim_id,cell_id
+object|ordinal=2 id=chunk-digest kind=CHUNK_DIGEST canonical_by=sha256,chunk_size,byte_order
+object|ordinal=3 id=manifest-root kind=MANIFEST_ROOT canonical_by=chunk_ordinal,cell_id,chunk_index,digest
+object|ordinal=4 id=projection-request kind=PROJECTION_REQUEST canonical_by=request_id,case_id,requested_cell,requested_claim
+object|ordinal=5 id=inclusion-proof kind=INCLUSION_PROOF canonical_by=leaf_index,leaf_count,sibling_order,manifest_root
+object|ordinal=6 id=replay kind=REPLAY canonical_by=canonical_case_order,semantic_root
+
+cell|ordinal=1 id=cell-evidence-object object=evidence-object stage=EVIDENCE step=CANONICALIZE_EVIDENCE_OBJECT proof=CANONICAL_JSON indicator=semantic_root
+cell|ordinal=2 id=cell-chunk-digest object=chunk-digest stage=CHUNKING step=FIXED_SIZE_CONTENT_ADDRESSING proof=CHUNK_DIGEST indicator=bytes_read
+cell|ordinal=3 id=cell-manifest-root object=manifest-root stage=MANIFEST step=MERKLE_MANIFEST_ROOT proof=MERKLE_ROOT indicator=files_read
+cell|ordinal=4 id=cell-projection-request object=projection-request stage=PROJECTION step=SELECT_REQUESTED_CELL proof=REQUEST_DIGEST indicator=files_read
+cell|ordinal=5 id=cell-inclusion-proof object=inclusion-proof stage=PROOF step=VERIFY_SELECTED_CHUNK_INCLUSION proof=MERKLE_INCLUSION indicator=semantic_root
+cell|ordinal=6 id=cell-replay object=replay stage=REPLAY step=ORDER_PERTURBED_CANONICAL_REPLAY proof=REPLAY_EQUALITY indicator=wall_ms
+
+rule|id=missing_parent_manifest cell=cell-manifest-root decision=UNKNOWN reason=PARENT_MANIFEST_MISSING unknown_class=MISSING_EVIDENCE next_operation=FETCH_PARENT_MANIFEST
+rule|id=stale_parent_manifest cell=cell-manifest-root decision=UNKNOWN reason=PARENT_MANIFEST_STALE unknown_class=STALE_EVIDENCE next_operation=REFRESH_PARENT_MANIFEST
+rule|id=ambiguous_parent_manifest cell=cell-manifest-root decision=UNKNOWN reason=PARENT_MANIFEST_AMBIGUOUS unknown_class=AMBIGUOUS_EVIDENCE next_operation=DISAMBIGUATE_PARENT_MANIFEST
+rule|id=chunk_digest_mismatch cell=cell-chunk-digest decision=REFUTED reason=PARENT_CHUNK_DIGEST_MISMATCH unknown_class=CONTRADICTORY_EVIDENCE next_operation=STOP_AND_REFETCH_CHUNK
+rule|id=manifest_root_contradiction cell=cell-manifest-root decision=REFUTED reason=PARENT_MANIFEST_ROOT_CONTRADICTION unknown_class=CONTRADICTORY_EVIDENCE next_operation=STOP_AND_REBUILD_MANIFEST
+rule|id=authority_write_escalation cell=cell-projection-request decision=REFUTED reason=AUTHORITY_WRITE_ESCALATION unknown_class=AUTHORITY_CONTRADICTION next_operation=STOP_AND_REVOKE_WRITE_PATH
+
+case|ordinal=1 id=closed-full-replay expected=CLOSED
+case|ordinal=2 id=closed-one-cell-selective-projection expected=CLOSED
+case|ordinal=3 id=closed-repeated-chunk-dedup-reuse expected=CLOSED
+case|ordinal=4 id=unknown-parent-manifest-missing expected=UNKNOWN
+case|ordinal=5 id=unknown-parent-manifest-stale expected=UNKNOWN
+case|ordinal=6 id=unknown-parent-manifest-ambiguous expected=UNKNOWN
+case|ordinal=7 id=refuted-chunk-digest-mismatch expected=REFUTED
+case|ordinal=8 id=refuted-manifest-root-contradiction expected=REFUTED
+case|ordinal=9 id=refuted-authority-write-escalation expected=REFUTED

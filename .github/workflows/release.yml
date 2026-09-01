@@ -1,0 +1,125 @@
+name: immutable content-addressed evidence projector release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Annotated release tag to publish
+        required: true
+        default: v0.1.0
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    env:
+      RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
+    steps:
+      - name: Check out immutable tag
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+          fetch-depth: 0
+      - name: Set up Go 1.27
+        uses: actions/setup-go@v6
+        with:
+          go-version: '1.27.x'
+          cache: false
+      - name: Verify annotated tag and prepare release assets in runner temp
+        id: asset
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          case "$RELEASE_TAG" in v0.1.*) ;; *) echo "unsupported release tag $RELEASE_TAG" >&2; exit 64 ;; esac
+          test "$(git cat-file -t "$RELEASE_TAG")" = tag
+          commit_sha=$(git rev-parse "$RELEASE_TAG^{commit}")
+          tag_object_sha=$(git rev-parse "$RELEASE_TAG")
+          if test "${GITHUB_EVENT_NAME:-}" = "push" && test "$commit_sha" != "$GITHUB_SHA"; then
+            echo "tag commit is not the workflow revision" >&2
+            exit 1
+          fi
+          release_root="$RUNNER_TEMP/gooo-content-addressed-evidence-projector-release"
+          mkdir -p "$release_root"
+          go build -trimpath -o "$release_root/projector" ./cmd/projector
+          archive="gooo-content-addressed-evidence-projector-${RELEASE_TAG}.tar.gz"
+          git archive --format=tar.gz --prefix="gooo-content-addressed-evidence-projector-${RELEASE_TAG}/" "$commit_sha" > "$release_root/$archive"
+          asset_digest="sha256:$(sha256sum "$release_root/$archive" | awk '{print $1}')"
+          asset_size=$(wc -c < "$release_root/$archive" | tr -d ' ')
+          jq -S -n \
+            --arg tag "$RELEASE_TAG" \
+            --arg tag_object_sha "$tag_object_sha" \
+            --arg commit_sha "$commit_sha" \
+            --arg archive "$archive" \
+            --arg asset_digest "$asset_digest" \
+            --argjson asset_size "$asset_size" \
+            '{schema:"gooo/content-addressed-evidence-projector/release-manifest/v1",tag:$tag,tag_object_sha:$tag_object_sha,commit_sha:$commit_sha,archive:$archive,asset_size_bytes:$asset_size,asset_digest:$asset_digest,immutable:true,exact_denominator:{CLOSED:3,UNKNOWN:3,REFUTED:3},cross_project_required_gates:0,local_validation_exact_count:0}' \
+            > "$release_root/release-manifest.json"
+          manifest_digest="sha256:$(sha256sum "$release_root/release-manifest.json" | awk '{print $1}')"
+          {
+            printf '%s  %s\n' "$asset_digest" "$archive"
+            printf '%s  %s\n' "$manifest_digest" release-manifest.json
+          } > "$release_root/SHA256SUMS"
+          echo "release_root=$release_root" >> "$GITHUB_OUTPUT"
+          echo "archive=$archive" >> "$GITHUB_OUTPUT"
+      - name: Create or preserve draft release
+        id: draft
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          release_id=$(gh api "repos/${GITHUB_REPOSITORY}/releases?per_page=100" --paginate | jq -r --arg tag "$RELEASE_TAG" '.[] | select(.tag_name == $tag) | .id' | head -n 1)
+          if test -z "$release_id"; then
+            gh release create "$RELEASE_TAG" --verify-tag --draft --title "gooo-content-addressed-evidence-projector $RELEASE_TAG" --notes "Draft-first release bound to annotated tag $(git rev-parse "$RELEASE_TAG")"
+            release_id=$(gh api "repos/${GITHUB_REPOSITORY}/releases?per_page=100" --paginate | jq -r --arg tag "$RELEASE_TAG" '.[] | select(.tag_name == $tag) | .id' | head -n 1)
+          fi
+          test -n "$release_id"
+          echo "release_id=$release_id" >> "$GITHUB_OUTPUT"
+          gh api "repos/${GITHUB_REPOSITORY}/releases/$release_id" > "${{ steps.asset.outputs.release_root }}/release-before-assets.json"
+          jq -e --arg tag "$RELEASE_TAG" '.tag_name == $tag and .draft == true and .prerelease == false' "${{ steps.asset.outputs.release_root }}/release-before-assets.json" >/dev/null
+      - name: Attach immutable release assets to draft
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          root="${{ steps.asset.outputs.release_root }}"
+          release_id="${{ steps.draft.outputs.release_id }}"
+          existing=$(jq -r '.assets[].name' "$root/release-before-assets.json" 2>/dev/null || true)
+          for asset in "${{ steps.asset.outputs.archive }}" SHA256SUMS release-manifest.json; do
+            if ! grep -Fxq "$asset" <<< "$existing"; then
+              gh release upload "$RELEASE_TAG" "$root/$asset"
+            fi
+          done
+      - name: Publish prepared draft
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh api --method PATCH "repos/${GITHUB_REPOSITORY}/releases/${{ steps.draft.outputs.release_id }}" -f draft=false >/dev/null
+      - name: Audit actual immutable release, tag, assets, and digests
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          root="${{ steps.asset.outputs.release_root }}"
+          release_id="${{ steps.draft.outputs.release_id }}"
+          gh api "repos/${GITHUB_REPOSITORY}/releases/$release_id" > "$root/release-after-publish.json"
+          gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/$RELEASE_TAG" > "$root/tag-ref.json"
+          jq -e --arg tag "$RELEASE_TAG" '.tag_name == $tag and .draft == false and .prerelease == false and .immutable == true' "$root/release-after-publish.json" >/dev/null
+          jq -e --arg tag "$RELEASE_TAG" '.ref == ("refs/tags/" + $tag) and .object.type == "tag"' "$root/tag-ref.json" >/dev/null
+          for asset in "${{ steps.asset.outputs.archive }}" SHA256SUMS release-manifest.json; do
+            jq -e --arg name "$asset" '[.assets[] | select(.name == $name and .digest != null)] | length == 1' "$root/release-after-publish.json" >/dev/null
+          done
+          cat "$root/release-after-publish.json" >> "$GITHUB_STEP_SUMMARY"
+          cat "$root/tag-ref.json" >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload release audit
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: content-addressed-evidence-projector-release-${{ env.RELEASE_TAG }}
+          path: ${{ runner.temp }}/gooo-content-addressed-evidence-projector-release/**
+          if-no-files-found: warn

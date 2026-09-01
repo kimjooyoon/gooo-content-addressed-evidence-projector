@@ -1,0 +1,110 @@
+{
+  "schema": "gooo/content-addressed-evidence-projector/fixture/v1",
+  "fixture_id": "content-addressed-evidence-projector-own-deterministic-v1",
+  "hash_algorithm": "sha256",
+  "contract_version": "v0.1.0",
+  "cases": [
+    {
+      "ordinal": 1,
+      "case_id": "closed-full-replay",
+      "expected_decision": "CLOSED",
+      "description": "Full canonical evidence replay has the same semantic root after case-order perturbation.",
+      "cells": [
+        {"cell_id": "evidence-cell", "claim_id": "claim-full", "content": "alpha-evidence-object", "stable_value": "full"},
+        {"cell_id": "proof-cell", "claim_id": "claim-proof", "content": "proof-material", "stable_value": "proof"},
+        {"cell_id": "replay-cell", "claim_id": "claim-replay", "content": "replay-material", "stable_value": "replay"}
+      ],
+      "projection": {"request_id": "request-full-replay", "expected_mode": "FULL", "depends_on": ["manifest-root", "replay"]},
+      "parent_manifest": {"state": "valid"},
+      "authority": {"repository_writes": 0, "authority": "READ_ONLY"}
+    },
+    {
+      "ordinal": 2,
+      "case_id": "closed-one-cell-selective-projection",
+      "expected_decision": "CLOSED",
+      "description": "Only the requested claim cell is read while its Merkle inclusion proof reaches the semantic root.",
+      "cells": [
+        {"cell_id": "claim-cell", "claim_id": "claim-selective", "content": "selective-claim-payload", "stable_value": "selected"},
+        {"cell_id": "context-cell", "claim_id": "claim-context", "content": "unselected-context-payload", "stable_value": "context"},
+        {"cell_id": "audit-cell", "claim_id": "claim-audit", "content": "unselected-audit-payload", "stable_value": "audit"}
+      ],
+      "projection": {"request_id": "request-one-cell", "requested_cell": "claim-cell", "requested_claim": "claim-selective", "expected_mode": "SELECTIVE", "depends_on": ["claim-cell", "manifest-root", "inclusion-proof"]},
+      "parent_manifest": {"state": "valid"},
+      "authority": {"repository_writes": 0, "authority": "READ_ONLY"}
+    },
+    {
+      "ordinal": 3,
+      "case_id": "closed-repeated-chunk-dedup-reuse",
+      "expected_decision": "CLOSED",
+      "description": "Two cells contain the same bytes and reuse one content-addressed chunk.",
+      "cells": [
+        {"cell_id": "repeat-a", "claim_id": "claim-repeat-a", "content": "same-shared-evidence", "stable_value": "a"},
+        {"cell_id": "repeat-b", "claim_id": "claim-repeat-b", "content": "same-shared-evidence", "stable_value": "b"},
+        {"cell_id": "repeat-tail", "claim_id": "claim-repeat-tail", "content": "unique-tail", "stable_value": "tail"}
+      ],
+      "projection": {"request_id": "request-dedup", "expected_mode": "FULL", "depends_on": ["chunk-digest", "manifest-root"]},
+      "parent_manifest": {"state": "valid"},
+      "authority": {"repository_writes": 0, "authority": "READ_ONLY"}
+    },
+    {
+      "ordinal": 4,
+      "case_id": "unknown-parent-manifest-missing",
+      "expected_decision": "UNKNOWN",
+      "description": "A missing parent manifest cannot establish reuse eligibility, so the candidate falls back to full fetch.",
+      "cells": [{"cell_id": "missing-cell", "claim_id": "claim-missing", "content": "missing-parent-payload", "stable_value": "missing"}],
+      "projection": {"request_id": "request-missing", "requested_cell": "missing-cell", "expected_mode": "SELECTIVE"},
+      "parent_manifest": {"state": "missing"},
+      "authority": {"repository_writes": 0, "authority": "READ_ONLY"}
+    },
+    {
+      "ordinal": 5,
+      "case_id": "unknown-parent-manifest-stale",
+      "expected_decision": "UNKNOWN",
+      "description": "A stale parent manifest cannot establish a safe content-addressed projection.",
+      "cells": [{"cell_id": "stale-cell", "claim_id": "claim-stale", "content": "stale-parent-payload", "stable_value": "stale"}],
+      "projection": {"request_id": "request-stale", "requested_cell": "stale-cell", "expected_mode": "SELECTIVE"},
+      "parent_manifest": {"state": "stale"},
+      "authority": {"repository_writes": 0, "authority": "READ_ONLY"}
+    },
+    {
+      "ordinal": 6,
+      "case_id": "unknown-parent-manifest-ambiguous",
+      "expected_decision": "UNKNOWN",
+      "description": "Ambiguous parent manifests cannot be selected by inference and require a full-fetch fallback.",
+      "cells": [{"cell_id": "ambiguous-cell", "claim_id": "claim-ambiguous", "content": "ambiguous-parent-payload", "stable_value": "ambiguous"}],
+      "projection": {"request_id": "request-ambiguous", "requested_cell": "ambiguous-cell", "expected_mode": "SELECTIVE"},
+      "parent_manifest": {"state": "ambiguous"},
+      "authority": {"repository_writes": 0, "authority": "READ_ONLY"}
+    },
+    {
+      "ordinal": 7,
+      "case_id": "refuted-chunk-digest-mismatch",
+      "expected_decision": "REFUTED",
+      "description": "The parent manifest carries a digest that contradicts the actual content-addressed chunk.",
+      "cells": [{"cell_id": "mismatch-cell", "claim_id": "claim-mismatch", "content": "digest-mismatch-payload", "stable_value": "mismatch"}],
+      "projection": {"request_id": "request-mismatch", "requested_cell": "mismatch-cell", "expected_mode": "SELECTIVE"},
+      "parent_manifest": {"state": "valid", "chunk_digest_override": "sha256:0000000000000000000000000000000000000000000000000000000000000000"},
+      "authority": {"repository_writes": 0, "authority": "READ_ONLY"}
+    },
+    {
+      "ordinal": 8,
+      "case_id": "refuted-manifest-root-contradiction",
+      "expected_decision": "REFUTED",
+      "description": "The parent manifest root contradicts the canonical Merkle root of its chunk references.",
+      "cells": [{"cell_id": "root-cell", "claim_id": "claim-root", "content": "root-contradiction-payload", "stable_value": "root"}],
+      "projection": {"request_id": "request-root", "requested_cell": "root-cell", "expected_mode": "SELECTIVE"},
+      "parent_manifest": {"state": "valid", "root_override": "sha256:1111111111111111111111111111111111111111111111111111111111111111"},
+      "authority": {"repository_writes": 0, "authority": "READ_ONLY"}
+    },
+    {
+      "ordinal": 9,
+      "case_id": "refuted-authority-write-escalation",
+      "expected_decision": "REFUTED",
+      "description": "A write-capable authority cannot be promoted by a projection request or cache hit.",
+      "cells": [{"cell_id": "authority-cell", "claim_id": "claim-authority", "content": "authority-escalation-payload", "stable_value": "authority"}],
+      "projection": {"request_id": "request-authority", "requested_cell": "authority-cell", "expected_mode": "SELECTIVE"},
+      "parent_manifest": {"state": "valid"},
+      "authority": {"repository_writes": 1, "authority": "WRITE_CAPABLE"}
+    }
+  ]
+}

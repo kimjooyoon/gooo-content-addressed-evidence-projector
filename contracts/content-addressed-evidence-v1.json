@@ -1,0 +1,32 @@
+{
+  "schema": "gooo/content-addressed-evidence-projector/contract/v1",
+  "release": "v0.1.0",
+  "hash_algorithm": "sha256",
+  "chunking": {
+    "algorithm": "fixed_size_bytes",
+    "size_from_gooo_graph": true,
+    "canonical_order": ["case_id", "cell_id", "chunk_index"]
+  },
+  "objects": [
+    "EVIDENCE_OBJECT",
+    "CHUNK_DIGEST",
+    "MANIFEST_ROOT",
+    "PROJECTION_REQUEST",
+    "INCLUSION_PROOF",
+    "REPLAY"
+  ],
+  "indicators": ["semantic_root", "bytes_read", "files_read", "wall_ms", "peak_rss_kib"],
+  "states": {
+    "precedence": ["REFUTED", "UNKNOWN", "CLOSED"],
+    "exact_denominator": {"CLOSED": 3, "UNKNOWN": 3, "REFUTED": 3},
+    "unknown_fields": ["stage", "step", "reason", "unknown_class", "next_operation", "blocked_by"]
+  },
+  "authority": {
+    "repository_writes": 0,
+    "local_test_executions": 0,
+    "cross_project_required_gates": 0,
+    "output": "caller_owned_temp_only",
+    "github_token_source": "github.token"
+  },
+  "improvement": "exact_before_after_pair_per_indicator_only; no_aggregate"
+}

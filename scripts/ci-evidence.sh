@@ -41,15 +41,16 @@ format_status=$?
 set -e
 jq -cn --arg stage format --argjson status "$format_status" --arg files "$(tr '\n' ' ' < "$work/gofmt-files.txt")" '{stage:$stage,status:$status,files:$files}' >> "$stage_status"
 
-conformance_status=1
+conformance_status=0
 if [[ "$build_status" -eq 0 ]]; then
   run_stage conformance "$binary" conformance \
     --source "$root/.gooo/content-addressed-evidence-projector.gooo" \
     --fixture "$root/fixtures/deterministic-corpus-v1.json" \
     --output "$output" \
     --root "$root" || conformance_status=$?
+else
+  conformance_status=1
 fi
-conformance_status=${conformance_status:-0}
 
 test -f "$output/conformance-report.json" && cp "$output/conformance-report.json" "$work/conformance-report.json"
 jq -e '
